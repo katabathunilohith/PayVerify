@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, copy_field, check_icon %}
+{% block title %}WhatsApp settings{% endblock %}
+{% block content %}
+{% include "settings/_nav.html" %}
+{% set u = current_user %}
+{% set public = webhook_url.startswith('https://') and 'localhost' not in webhook_url and '127.0.0.1' not in webhook_url %}
+
+<section class="card stack">
+  <div class="card-head">
+    <h2 class="card-title">Connection status</h2>
+    {% if u.whatsapp_ready and u.wa_verified_at %}<span class="badge badge-verified">Connected</span>{% else %}<span class="badge badge-muted">Not finished</span>{% endif %}
+  </div>
+  <ul class="checks status-list">
+    <li>
+      {{ check_icon('pass' if public else 'fail') }}
+      <div>
+        <strong>Online at a public https:// address</strong>
+        {% if public %}
+          <span>WhatsApp can reach <span class="mono">{{ webhook_url.split('/webhooks')[0] }}</span>.</span>
+        {% else %}
+          <span>Right now this server is at <span class="mono">{{ webhook_url.split('/webhooks')[0] }}</span>, which WhatsApp can't reach. Put it online first (step 1 below).</span>
+        {% endif %}
+      </div>
+    </li>
+    <li>
+      {{ check_icon('pass' if u.whatsapp_ready else 'skip') }}
+      <div>
+        <strong>Meta app details saved</strong>
+        <span>{{ 'Phone number ID, access token and app secret are saved.' if u.whatsapp_ready else 'Fill in the form below (steps 3–5).' }}</span>
+      </div>
+    </li>
+    <li>
+      {{ check_icon('pass' if u.wa_verified_at else 'skip') }}
+      <div>
+        <strong>Webhook verified by Meta</strong>
+        <span>{% if u.wa_verified_at %}Meta checked your callback URL on {{ u.wa_verified_at|localtime }}.{% else %}Not yet. Paste the callback URL and verify token into Meta (step 6).{% endif %}</span>
+      </div>
+    </li>
+    <li>
+      {{ check_icon('pass' if u.wa_last_message_at else 'skip') }}
+      <div>
+        <strong>Messages arriving</strong>
+        <span>{% if u.wa_last_message_at %}Last update from WhatsApp: {{ u.wa_last_message_at|localtime }}.{% else %}Nothing received yet. Send a screenshot to your business number (step 7).{% endif %}</span>
+      </div>
+    </li>
+    {% if u.wa_last_error %}
+      <li>
+        {{ check_icon('warn') }}
+        <div>
+          <strong>Last problem{% if u.wa_last_error_at %} ({{ u.wa_last_error_at|localtime }}){% endif %}</strong>
+          <span>{{ u.wa_last_error }}</span>
+        </div>
+      </li>
+    {% endif %}
+  </ul>
+</section>
+
+<section class="card stack">
+  <h2 class="card-title">Paste these into Meta</h2>
+  {{ copy_field('Callback URL', webhook_url, 'webhook_url') }}
+  {{ copy_field('Verify token', u.wa_verify_token, 'verify_token') }}
+</section>
+
+<form method="post" class="card stack" autocomplete="off">
+  {{ csrf() }}
+  <h2 class="card-title">Your Meta app details</h2>
+  <div class="field">
+    <label for="phone_number_id">Phone number ID</label>
+    <input id="phone_number_id" name="phone_number_id" inputmode="numeric" value="{{ u.wa_phone_number_id }}" placeholder="e.g. 106540352242922">
+    <p class="hint">WhatsApp → API Setup. This is an ID, not your phone number.</p>
+  </div>
+  <div class="field">
+    <label for="access_token">Access token</label>
+    <input id="access_token" name="access_token" type="password" placeholder="{{ 'Saved. Leave empty to keep it' if has_token else 'Paste a permanent system-user token' }}">
+    <p class="hint">Stored encrypted. The temporary token on the API Setup page stops working after 24 hours.</p>
+  </div>
+  <div class="field">
+    <label for="app_secret">App secret</label>
+    <input id="app_secret" name="app_secret" type="password" placeholder="{{ 'Saved. Leave empty to keep it' if has_secret else 'App settings → Basic → App secret' }}">
+    <p class="hint">Proves that messages really come from WhatsApp. Stored encrypted.</p>
+  </div>
+  <div class="action-row">
+    <button class="btn btn-primary" type="submit" name="action" value="save">Save</button>
+    <button class="btn btn-secondary" type="submit" name="action" value="test" formnovalidate>Check connection</button>
+  </div>
+</form>
+
+{% if u.whatsapp_ready %}
+<form method="post" class="card stack" autocomplete="off">
+  {{ csrf() }}
+  <h2 class="card-title">Send a test message</h2>
+  <p class="muted small">Sends Meta's ready-made “hello_world” message from your business number to any WhatsApp number, for example your personal one.</p>
+  <div class="field">
+    <label for="test_phone">To (with country code)</label>
+    <input id="test_phone" name="test_phone" type="tel" inputmode="tel" placeholder="919876543210">
+  </div>
+  <div class="action-row">
+    <button class="btn btn-secondary" type="submit" name="action" value="send_test">{{ icon('chat') }}Send test message</button>
+  </div>
+</form>
+{% endif %}
+
+<details class="card collapsible" {{ 'open' if not (u.whatsapp_ready and u.wa_verified_at) }}>
+  <summary>{{ icon('chat') }}Step-by-step setup</summary>
+  <ol class="howto">
+    <li><strong>Put {{ app_name }} online.</strong> WhatsApp sends each message to your server, so it needs a public <span class="mono">https://</span> address. Run it on a small cloud server, or on this Mac with a tunnel such as ngrok. Set <code>PUBLIC_BASE_URL</code> to that address and <code>BEHIND_PROXY=1</code>, then restart (README → “Going live”).</li>
+    <li><strong>Create a Meta app.</strong> On <strong>developers.facebook.com</strong> → My Apps → <strong>Create app</strong>, choose the use case <em>Connect with customers through WhatsApp</em> (or the <em>Business</em> type), and link your Meta Business portfolio.</li>
+    <li><strong>Pick a number.</strong> In <strong>WhatsApp → API Setup</strong> you can start with Meta's free test number (add your own phone under “To” to receive messages), or add your business number. A number used here can't stay logged in to the normal WhatsApp app. Copy the <strong>Phone number ID</strong> into the form above.</li>
+    <li><strong>Create a permanent token.</strong> In <strong>business.facebook.com</strong> → Settings → Users → <strong>System users</strong>: add one with the Admin role, use <em>Assign assets</em> to give it your app and WhatsApp account, then <em>Generate token</em> with <code>whatsapp_business_messaging</code> and <code>whatsapp_business_management</code>. Paste it as the access token.</li>
+    <li><strong>Copy the app secret</strong> from <strong>App settings → Basic</strong>, paste it above, press <strong>Save</strong>, then <strong>Check connection</strong>.</li>
+    <li><strong>Connect the webhook.</strong> In <strong>WhatsApp → Configuration</strong>, press <em>Edit</em> next to Webhook, paste the <strong>Callback URL</strong> and <strong>Verify token</strong> from this page, and press <em>Verify and save</em>. Then, under <strong>Webhook fields</strong>, subscribe to <strong>messages</strong>.</li>
+    <li><strong>Test it.</strong> From your personal WhatsApp, send a payment screenshot to the business number. It shows up on the Payments screen within seconds, and you get the automatic reply.</li>
+    <li><strong>Go live.</strong> When you switch from the test number to your real number, change the Phone number ID here. Meta may ask you to verify your business before you can message many customers. Check Meta's WhatsApp pricing page for current message charges.</li>
+  </ol>
+</details>
+
+<section class="card stack">
+  <h2 class="card-title">Manage</h2>
+  <div class="action-row">
+    <form method="post" data-confirm="Create a new webhook URL and verify token? You'll have to paste the new ones into Meta.">
+      {{ csrf() }}<input type="hidden" name="action" value="rotate">
+      <button class="btn btn-secondary" type="submit">{{ icon('refresh') }}New webhook URL</button>
+    </form>
+    {% if u.wa_phone_number_id or has_token or has_secret %}
+      <form method="post" data-confirm="Remove the saved WhatsApp details? New screenshots will stop arriving.">
+        {{ csrf() }}<input type="hidden" name="action" value="disconnect">
+        <button class="btn btn-ghost btn-danger-text" type="submit">Disconnect</button>
+      </form>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

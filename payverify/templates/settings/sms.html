@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, copy_field %}
+{% block title %}Bank SMS settings{% endblock %}
+{% block content %}
+{% include "settings/_nav.html" %}
+{% set u = current_user %}
+
+<section class="card stack">
+  <h2 class="card-title">Forward bank SMS automatically</h2>
+  <p class="muted small">
+    When your bank texts you “Rs 500 credited … UPI Ref 6278…”, your phone sends that SMS to the link below.
+    Screenshots with the same UTR and amount then become <strong>Verified</strong> by themselves.
+  </p>
+  {{ copy_field('Your private forwarding link', sms_url, 'sms_url') }}
+  <p class="hint">Keep this link private, like a password. Only “money credited” messages are kept; OTPs and other SMS are thrown away.</p>
+</section>
+
+<form method="post" class="card stack">
+  {{ csrf() }}
+  <h2 class="card-title">Which senders to trust</h2>
+  <p class="muted small">
+    Banks send alerts from names like <span class="mono">AX-HDFCBK</span>, never from a normal phone number, so
+    SMS from phone numbers are always ignored. This stops someone texting you a fake “credited” message.
+  </p>
+  <div class="field">
+    <label for="trusted_senders">Only accept senders containing <span class="optional">optional</span></label>
+    <input id="trusted_senders" name="trusted_senders" value="{{ u.sms_trusted_senders }}" placeholder="HDFCBK, SBIUPI, ICICIT" autocapitalize="characters">
+    <p class="hint">Comma separated. Leave empty to accept any bank-style sender name.</p>
+  </div>
+  <div class="action-row">
+    <button class="btn btn-primary" type="submit" name="action" value="save">Save</button>
+  </div>
+</form>
+
+<details class="card collapsible">
+  <summary>{{ icon('phone') }}Android setup</summary>
+  <ol class="howto">
+    <li>Install an SMS-to-webhook forwarding app, for example the open-source <strong>SMS Forwarder</strong> (search “SMS forwarder webhook” in the Play Store).</li>
+    <li>Create a rule that forwards SMS whose sender contains your bank's name (for example <span class="mono">HDFCBK</span>).</li>
+    <li>Set the URL to your private forwarding link, the method to <strong>POST</strong>, and the JSON body to:
+      <pre class="code">{"from": "%from%", "text": "%text%"}</pre>
+      (use the app's own placeholders for sender and message text).</li>
+    <li>Allow the app to run in the background and turn off battery optimisation for it, or it may stop forwarding.</li>
+  </ol>
+</details>
+
+<details class="card collapsible">
+  <summary>{{ icon('phone') }}iPhone setup (Shortcuts)</summary>
+  <ol class="howto">
+    <li>Open <strong>Shortcuts</strong> → <strong>Automation</strong> → <strong>New Automation</strong> → <strong>Message</strong>.</li>
+    <li>Choose <em>Message Contains</em> “credited” (and/or your bank as the sender), then <strong>Run Immediately</strong>.</li>
+    <li>Add the action <strong>Get Contents of URL</strong>: paste your private link, set Method to <strong>POST</strong>, Request Body to <strong>JSON</strong>, and add two text fields: <span class="mono">from</span> = the message's Sender and <span class="mono">text</span> = the message's Content.</li>
+  </ol>
+  <p class="hint">No phone forwarding? Paste SMS or import your bank statement on the Bank screen instead.</p>
+</details>
+
+<details class="card collapsible">
+  <summary>{{ icon('copy') }}Test it from a computer</summary>
+  <pre class="code" id="curl_example">curl -X POST "{{ sms_url }}" -H "Content-Type: application/json" -d '{"from": "AX-HDFCBK", "text": "Rs.1.00 credited to a/c XX1234 on 05-10-26 by VPA test@okaxis (UPI Ref No 600000000001)"}'</pre>
+  <button type="button" class="btn btn-secondary btn-small" data-copy="#curl_example">{{ icon('copy') }}<span>Copy</span></button>
+  <p class="hint">This adds a ₹1 test credit. Delete it afterwards on the Bank screen.</p>
+</details>
+
+<section class="card stack">
+  <h2 class="card-title">Link leaked?</h2>
+  <form method="post" data-confirm="Create a new forwarding link? The old one stops working immediately.">
+    {{ csrf() }}<input type="hidden" name="action" value="rotate">
+    <button class="btn btn-secondary" type="submit">{{ icon('refresh') }}Create a new link</button>
+  </form>
+</section>
+{% endblock %}

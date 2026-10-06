@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Create account{% endblock %}
+{% block content %}
+<div class="auth-wrap">
+  <div class="auth-card card">
+    <div class="auth-brand">{{ icon('shield-check', 'brand-mark big') }}<span>{{ app_name }}</span></div>
+    {% if closed %}
+      <h1>Sign-ups are closed</h1>
+      <p class="muted">Ask the owner of this {{ app_name }} server to create an account for you.</p>
+      <a class="btn btn-secondary btn-block" href="{{ url_for('auth.login') }}">Back to log in</a>
+    {% else %}
+      <h1>Create your account</h1>
+      <p class="muted">Each account has its own payments, bank credits and WhatsApp number. Nobody else can see them.</p>
+      <form method="post" class="stack" novalidate>
+        {{ csrf() }}
+        <div class="field">
+          <label for="name">Your name</label>
+          <input id="name" name="name" autocomplete="name" value="{{ form.get('name', '') }}" required>
+        </div>
+        <div class="field">
+          <label for="business_name">Business name <span class="optional">optional</span></label>
+          <input id="business_name" name="business_name" autocomplete="organization" value="{{ form.get('business_name', '') }}">
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="username" inputmode="email" value="{{ form.get('email', '') }}" required>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
+          <p class="hint">At least 8 characters.</p>
+        </div>
+        <div class="field">
+          <label for="confirm">Confirm password</label>
+          <input id="confirm" name="confirm" type="password" autocomplete="new-password" minlength="8" required>
+        </div>
+        {% if config.SIGNUP_CODE %}
+          <div class="field">
+            <label for="signup_code">Invite code</label>
+            <input id="signup_code" name="signup_code" autocomplete="off" required>
+          </div>
+        {% endif %}
+        <button class="btn btn-primary btn-block" type="submit">Create account</button>
+      </form>
+      <p class="auth-switch">Already have an account? <a href="{{ url_for('auth.login') }}">Log in</a></p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

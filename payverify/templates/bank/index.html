@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, month_nav %}
+{% block title %}Bank credits{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="page-title">
+    <h1>Bank credits</h1>
+    <p class="muted">Money that really reached your bank. Screenshots are matched to these by UTR.</p>
+  </div>
+  <div class="head-actions">
+    {{ month_nav('bank.index', month, prev_month, next_month) }}
+  </div>
+</header>
+
+<section class="stats stats-3">
+  <div class="stat stat-verified">
+    <span class="stat-label">Credited in {{ month|month_label }}</span>
+    <strong>{{ total|inr }}</strong>
+    <span class="stat-sub">{{ credits|length }} credit{{ '' if credits|length == 1 else 's' }}</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Linked to a screenshot</span>
+    <strong>{{ matched|length }}</strong>
+    <span class="stat-sub">{{ credits|length - matched|length }} without one yet</span>
+  </div>
+  <a class="stat" href="{{ url_for('settings.sms_settings') }}">
+    <span class="stat-label">Automatic SMS forwarding</span>
+    <strong class="stat-link">Set up {{ icon('chevron-right') }}</strong>
+    <span class="stat-sub">Android app or iPhone Shortcut</span>
+  </a>
+</section>
+
+{% if credits %}
+  <ul class="credit-list">
+    {% for credit in credits %}
+      {% set payment = matched.get(credit.id) %}
+      <li class="card credit-row">
+        <div class="credit-main">
+          <strong class="credit-amount">{{ credit.amount_paise|inr }}</strong>
+          <span class="mono">{{ credit.utr or 'No UTR' }}</span>
+          <span class="muted small">{{ credit.credited_at|localdt }} · {{ {'sms': 'Bank SMS', 'statement': 'Statement', 'manual': 'Added by you'}.get(credit.source, credit.source) }}{% if credit.sender and credit.sender != 'Pasted' %} ({{ credit.sender }}){% endif %}</span>
+          {% if credit.counterparty %}<span class="muted small">From {{ credit.counterparty }}</span>{% endif %}
+        </div>
+        <div class="credit-side">
+          {% if payment %}
+            {% set ok = payment.status == 'verified' %}
+            <a class="badge badge-{{ 'verified' if ok else 'needs_review' }}" href="{{ url_for('payments.detail', payment_id=payment.id) }}">{{ 'Matched' if ok else 'Check' }} · {{ payment.customer_name or payment.customer_phone or 'payment' }}</a>
+          {% else %}
+            <span class="badge badge-muted">No screenshot yet</span>
+          {% endif %}
+          <form method="post" action="{{ url_for('bank.delete', credit_id=credit.id) }}" data-confirm="Delete this bank credit? Payments matched to it go back to “Needs review”.">
+            {{ csrf() }}
+            <button class="icon-btn" type="submit" aria-label="Delete credit">{{ icon('trash') }}</button>
+          </form>
+        </div>
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <div class="empty card">
+    {{ icon('bank', 'empty-icon') }}
+    <h2>No bank credits in {{ month|month_label }}</h2>
+    <p class="muted">Forward your bank's SMS alerts automatically, or add credits below.</p>
+  </div>
+{% endif %}
+
+<h2 class="section-title">Add credits</h2>
+<div class="stack">
+  <details class="card collapsible">
+    <summary>{{ icon('phone') }}Paste a bank SMS</summary>
+    <form method="post" action="{{ url_for('bank.paste_sms') }}" class="stack">
+      {{ csrf() }}
+      <div class="field">
+        <label for="sms_text">SMS text</label>
+        <textarea id="sms_text" name="sms_text" rows="3" required placeholder="Rs.500.00 credited to a/c XX1234 on 05-10-26 by a/c linked to VPA name@okaxis (UPI Ref No 612345678901)."></textarea>
+      </div>
+      <button class="btn btn-primary" type="submit">Add from SMS</button>
+    </form>
+  </details>
+
+  <details class="card collapsible">
+    <summary>{{ icon('download') }}Import a bank statement</summary>
+    <form method="post" action="{{ url_for('bank.import_statement') }}" enctype="multipart/form-data" class="stack" data-busy="Importing statement…">
+      {{ csrf() }}
+      <div class="field">
+        <label for="statement">Statement file (CSV or XLSX)</label>
+        <input id="statement" name="statement" type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required>
+        <p class="hint">Download it from net banking. Credits already recorded are skipped, so importing the same file twice is safe.</p>
+      </div>
+      <button class="btn btn-primary" type="submit">Import</button>
+    </form>
+  </details>
+
+  <details class="card collapsible">
+    <summary>{{ icon('plus') }}Add one by hand</summary>
+    <form method="post" action="{{ url_for('bank.manual') }}" class="stack">
+      {{ csrf() }}
+      <div class="grid-3">
+        <div class="field">
+          <label for="credit_amount">Amount (₹)</label>
+          <input id="credit_amount" name="amount" inputmode="decimal" required>
+        </div>
+        <div class="field">
+          <label for="credit_utr">UTR (12 digits)</label>
+          <input id="credit_utr" name="utr" inputmode="numeric" maxlength="12" pattern="[0-9]{12}" required>
+        </div>
+        <div class="field">
+          <label for="credited_at">Date and time <span class="optional">optional</span></label>
+          <input id="credited_at" name="credited_at" type="datetime-local">
+        </div>
+      </div>
+      <button class="btn btn-primary" type="submit">Add credit</button>
+    </form>
+  </details>
+</div>
+{% endblock %}

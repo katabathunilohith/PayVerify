@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, status_badge, check_icon %}
+{% block title %}{{ payment.customer_name or 'Payment' }}{% endblock %}
+{% block body_class %}{{ 'is-processing' if payment.status == 'processing' }}{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('payments.dashboard', month=payment.month_key) }}">{{ icon('chevron-left') }}Payments</a>
+
+<header class="detail-head">
+  <div>
+    <h1>{{ payment.customer_name or payment.customer_phone or 'Unknown customer' }}</h1>
+    <p class="muted">
+      {{ 'Sent on WhatsApp' if payment.source == 'whatsapp' else 'Added by you' }} · {{ payment.received_at|localtime }}
+    </p>
+  </div>
+  <div class="detail-amount">
+    <strong>{{ payment.amount_paise|inr }}</strong>
+    {{ status_badge(payment.status, payment.status_label) }}
+  </div>
+</header>
+
+<div class="banner banner-{{ payment.status }}">
+  <p>{{ payment.status_reason or payment.status_label }}</p>
+  {% if payment.manual_status %}
+    <form method="post" action="{{ url_for('payments.set_status', payment_id=payment.id) }}">
+      {{ csrf() }}<input type="hidden" name="action" value="auto">
+      <button class="btn btn-small btn-ghost" type="submit">Undo (check automatically)</button>
+    </form>
+  {% endif %}
+</div>
+
+<div class="detail-grid">
+  <section class="card shot-card">
+    {% if payment.screenshot_path %}
+      <a href="{{ url_for('payments.screenshot', payment_id=payment.id) }}" target="_blank" rel="noopener" class="shot-link">
+        <img src="{{ url_for('payments.screenshot', payment_id=payment.id) }}" alt="Payment screenshot from {{ payment.customer_name or 'customer' }}" loading="lazy">
+      </a>
+      <p class="hint center">Tap the image to open it full size.</p>
+    {% elif payment.status == 'processing' %}
+      <div class="shot-empty"><span class="spinner" aria-hidden="true"></span><p>Downloading and reading the screenshot…</p></div>
+    {% else %}
+      <div class="shot-empty">{{ icon('image', 'empty-icon') }}<p>No screenshot saved.</p></div>
+    {% endif %}
+  </section>
+
+  <div class="detail-side">
+    <section class="card">
+      <h2 class="card-title">Decision</h2>
+      <div class="action-row">
+        {% if payment.status != 'verified' %}
+          <form method="post" action="{{ url_for('payments.set_status', payment_id=payment.id) }}">
+            {{ csrf() }}<input type="hidden" name="action" value="verify">
+            <button class="btn btn-success" type="submit">{{ icon('check') }}Mark verified</button>
+          </form>
+        {% endif %}
+        {% if payment.status != 'rejected' %}
+          <form method="post" action="{{ url_for('payments.set_status', payment_id=payment.id) }}" data-confirm="Mark this payment as rejected?">
+            {{ csrf() }}<input type="hidden" name="action" value="reject">
+            <button class="btn btn-danger-soft" type="submit">{{ icon('x') }}Reject</button>
+          </form>
+        {% endif %}
+        {% if payment.screenshot_path or payment.wa_media_id %}
+          <form method="post" action="{{ url_for('payments.reread', payment_id=payment.id) }}" data-busy="Reading the screenshot…"
+                {% if payment.details_source == 'manual' %}data-confirm="Reading again replaces the details you typed in. Continue?"{% endif %}>
+            {{ csrf() }}
+            <button class="btn btn-secondary" type="submit">{{ icon('refresh') }}Read again</button>
+          </form>
+        {% endif %}
+      </div>
+      {% if payment.source == 'whatsapp' and payment.last_reply_kind %}
+        <p class="hint">Last WhatsApp reply sent: <strong>{{ payment.last_reply_kind }}</strong>.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">Checks</h2>
+      <ul class="checks">
+        {% for check in payment.checks %}
+          <li>
+            {{ check_icon(check.state) }}
+            <div>
+              <strong>{{ check.label }}</strong>
+              <span>{{ check.detail }}{% if check.ref_id %} <a href="{{ url_for('payments.detail', payment_id=check.ref_id) }}">See earlier payment</a>{% endif %}</span>
+            </div>
+          </li>
+        {% else %}
+          <li class="muted">Checks run once the screenshot has been read.</li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">Details</h2>
+      <dl class="kv">
+        <dt>Amount</dt><dd>{{ payment.amount_paise|inr }}</dd>
+        <dt>UTR</dt><dd class="mono">{{ payment.utr or '—' }}</dd>
+        <dt>Payment app</dt><dd>{{ payment.payment_app or '—' }}</dd>
+        <dt>Paid at</dt><dd>{{ payment.paid_at|localdt }}</dd>
+        <dt>Paid to</dt><dd>{{ payment.payee_name or '—' }}{% if payment.payee_upi %}<br><span class="mono small">{{ payment.payee_upi }}</span>{% endif %}</dd>
+        <dt>Paid by</dt><dd>{{ payment.payer_name or '—' }}{% if payment.payer_upi %}<br><span class="mono small">{{ payment.payer_upi }}</span>{% endif %}</dd>
+        <dt>Customer phone</dt><dd>{{ payment.customer_phone or '—' }}</dd>
+        {% if payment.customer_note %}<dt>Customer's message</dt><dd>{{ payment.customer_note }}</dd>{% endif %}
+        {% if payment.bank_credit %}
+          <dt>Bank credit</dt>
+          <dd>{{ payment.bank_credit.amount_paise|inr }} · {{ payment.bank_credit.credited_at|localdt }}<br><span class="small muted">{{ payment.bank_credit.sender or payment.bank_credit.source }}</span></dd>
+        {% endif %}
+        <dt>Details from</dt><dd>{{ {'ai': 'Read by AI', 'manual': 'Typed in by you', 'none': 'Not read yet'}[payment.details_source] }}</dd>
+        {% if payment.notes %}<dt>Your notes</dt><dd>{{ payment.notes }}</dd>{% endif %}
+      </dl>
+    </section>
+
+    <details class="card collapsible">
+      <summary>{{ icon('edit') }}Correct the details</summary>
+      <form method="post" action="{{ url_for('payments.edit', payment_id=payment.id) }}" class="stack">
+        {{ csrf() }}
+        <div class="grid-2">
+          <div class="field">
+            <label for="amount">Amount (₹)</label>
+            <input id="amount" name="amount" inputmode="decimal" value="{{ payment.amount_paise|rupees_input }}">
+          </div>
+          <div class="field">
+            <label for="utr">UTR (12 digits)</label>
+            <input id="utr" name="utr" inputmode="numeric" maxlength="32" value="{{ payment.utr or '' }}">
+          </div>
+          <div class="field">
+            <label for="paid_at">Paid at</label>
+            <input id="paid_at" name="paid_at" type="datetime-local" value="{{ payment.paid_at|input_dt }}">
+          </div>
+          <div class="field">
+            <label for="payment_app">Payment app</label>
+            <select id="payment_app" name="payment_app">
+              {% for app in apps %}<option {{ 'selected' if app == payment.payment_app }}>{{ app }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="payee_upi">Paid to UPI ID</label>
+            <input id="payee_upi" name="payee_upi" autocapitalize="off" value="{{ payment.payee_upi }}">
+          </div>
+          <div class="field">
+            <label for="payee_name">Paid to name</label>
+            <input id="payee_name" name="payee_name" value="{{ payment.payee_name }}">
+          </div>
+          <div class="field">
+            <label for="customer_name">Customer name</label>
+            <input id="customer_name" name="customer_name" value="{{ payment.customer_name }}">
+          </div>
+          <div class="field">
+            <label for="customer_phone">Customer phone</label>
+            <input id="customer_phone" name="customer_phone" type="tel" value="{{ payment.customer_phone }}">
+          </div>
+        </div>
+        <div class="field">
+          <label for="notes">Notes <span class="optional">only you see these</span></label>
+          <textarea id="notes" name="notes" rows="2">{{ payment.notes }}</textarea>
+        </div>
+        <button class="btn btn-primary" type="submit">Save and re-check</button>
+      </form>
+    </details>
+
+    <form method="post" action="{{ url_for('payments.delete', payment_id=payment.id) }}" class="delete-row"
+          data-confirm="Delete this payment and its screenshot? This can't be undone.">
+      {{ csrf() }}
+      <button class="btn btn-ghost btn-danger-text" type="submit">{{ icon('trash') }}Delete payment</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

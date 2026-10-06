@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Log in{% endblock %}
+{% block content %}
+<div class="auth-wrap">
+  <div class="auth-card card">
+    <div class="auth-brand">{{ icon('shield-check', 'brand-mark big') }}<span>{{ app_name }}</span></div>
+    <h1>Log in</h1>
+    <p class="muted">Check UPI payment screenshots against the money that reached your bank.</p>
+    <form method="post" class="stack" novalidate>
+      {{ csrf() }}
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" autocomplete="username" inputmode="email" value="{{ email }}" required autofocus>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <label class="checkbox"><input type="checkbox" name="remember" value="1" checked> Keep me logged in on this device</label>
+      <button class="btn btn-primary btn-block" type="submit">Log in</button>
+    </form>
+    <p class="auth-switch">New here? <a href="{{ url_for('auth.signup') }}">Create an account</a></p>
+  </div>
+</div>
+{% endblock %}

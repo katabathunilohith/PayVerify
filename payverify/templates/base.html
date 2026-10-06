@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{% block title %}{% endblock %} · {{ app_name }}</title>
+  <meta name="description" content="Check UPI payment screenshots against the money that reached your bank.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f5f6fa" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0e1120" media="(prefers-color-scheme: dark)">
+  <link rel="manifest" href="{{ url_for('manifest') }}">
+  <link rel="icon" href="{{ asset('icons/favicon.svg') }}" type="image/svg+xml">
+  <link rel="icon" href="{{ asset('icons/icon-192.png') }}" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="{{ asset('icons/apple-touch-icon.png') }}">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="{{ app_name }}">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+  <script src="{{ asset('js/app.js') }}" defer></script>
+</head>
+{% set ep = request.endpoint or '' %}
+<body class="{% if current_user.is_authenticated %}signed-in{% else %}signed-out{% endif %} {% block body_class %}{% endblock %}"
+      {% if current_user.is_authenticated %}data-poll-url="{{ url_for('payments.changes') }}"{% endif %}>
+{% if current_user.is_authenticated %}
+  <aside class="sidebar">
+    <a class="brand" href="{{ url_for('payments.dashboard') }}">{{ icon('shield-check', 'brand-mark') }}<span>{{ app_name }}</span></a>
+    <nav class="side-nav" aria-label="Main">
+      <a href="{{ url_for('payments.dashboard') }}" class="{{ 'active' if ep in ('payments.dashboard', 'payments.detail') }}">{{ icon('receipt') }}Payments</a>
+      <a href="{{ url_for('payments.upload') }}" class="{{ 'active' if ep == 'payments.upload' }}">{{ icon('upload') }}Add screenshot</a>
+      <a href="{{ url_for('bank.index') }}" class="{{ 'active' if ep.startswith('bank.') }}">{{ icon('bank') }}Bank credits</a>
+      <a href="{{ url_for('settings.general') }}" class="{{ 'active' if ep.startswith('settings.') }}">{{ icon('sliders') }}Settings</a>
+    </nav>
+    <div class="side-account">
+      <div class="who">
+        <strong>{{ current_user.display_name }}</strong>
+        <span>{{ current_user.email }}</span>
+      </div>
+      <form method="post" action="{{ url_for('auth.logout') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-ghost btn-small" type="submit">{{ icon('logout') }}Log out</button>
+      </form>
+    </div>
+  </aside>
+
+  <nav class="tabbar" aria-label="Main">
+    <a href="{{ url_for('payments.dashboard') }}" class="{{ 'active' if ep in ('payments.dashboard', 'payments.detail') }}">{{ icon('receipt') }}<span>Payments</span></a>
+    <a href="{{ url_for('payments.upload') }}" class="tab-add {{ 'active' if ep == 'payments.upload' }}">{{ icon('plus') }}<span>Add</span></a>
+    <a href="{{ url_for('bank.index') }}" class="{{ 'active' if ep.startswith('bank.') }}">{{ icon('bank') }}<span>Bank</span></a>
+    <a href="{{ url_for('settings.general') }}" class="{{ 'active' if ep.startswith('settings.') }}">{{ icon('sliders') }}<span>Settings</span></a>
+  </nav>
+{% endif %}
+
+<main class="main" id="main">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flashes" role="status">
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+
+{% if current_user.is_authenticated %}
+  <div class="toast" id="update-toast" hidden>
+    <span>New payments or bank credits arrived.</span>
+    <button type="button" class="btn btn-small" data-reload>Refresh</button>
+  </div>
+{% endif %}
+</body>
+</html>

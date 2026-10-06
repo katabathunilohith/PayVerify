@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Error {{ code }}{% endblock %}
+{% block content %}
+<div class="empty card">
+  {{ icon('alert', 'empty-icon') }}
+  <h1>{{ message }}</h1>
+  <p class="muted">Error {{ code }}</p>
+  <a class="btn btn-primary" href="{{ url_for('payments.dashboard') }}">Go to payments</a>
+</div>
+{% endblock %}

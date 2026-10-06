@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Add screenshot{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="page-title">
+    <h1>Add a screenshot</h1>
+    <p class="muted">For payments that didn't come through WhatsApp. The same checks run either way.</p>
+  </div>
+</header>
+
+<form method="post" enctype="multipart/form-data" class="card upload-card stack" data-busy="Reading the screenshot… this takes a few seconds.">
+  {{ csrf() }}
+  <label class="dropzone" for="screenshot">
+    <input id="screenshot" name="screenshot" type="file" accept="image/png,image/jpeg,image/webp,image/gif" required data-preview="#preview">
+    <img id="preview" alt="" hidden>
+    <span class="dropzone-text">
+      {{ icon('image', 'empty-icon') }}
+      <strong>Choose a payment screenshot</strong>
+      <small>PNG or JPG from Google Pay, PhonePe, Paytm or your bank app</small>
+    </span>
+  </label>
+  <div class="grid-2">
+    <div class="field">
+      <label for="customer_name">Customer name <span class="optional">optional</span></label>
+      <input id="customer_name" name="customer_name" autocomplete="off">
+    </div>
+    <div class="field">
+      <label for="customer_phone">Customer phone <span class="optional">optional</span></label>
+      <input id="customer_phone" name="customer_phone" type="tel" autocomplete="off">
+    </div>
+  </div>
+  <button class="btn btn-primary btn-block" type="submit">{{ icon('upload') }}Check this payment</button>
+</form>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% set ep = request.endpoint %}
+<header class="page-head">
+  <div class="page-title">
+    <h1>Settings</h1>
+    <p class="muted">{{ current_user.display_name }} · {{ current_user.email }}</p>
+  </div>
+</header>
+<nav class="chips settings-nav" aria-label="Settings sections">
+  <a class="chip {{ 'active' if ep == 'settings.general' }}" href="{{ url_for('settings.general') }}">Checks &amp; replies</a>
+  <a class="chip {{ 'active' if ep == 'settings.whatsapp_settings' }}" href="{{ url_for('settings.whatsapp_settings') }}">WhatsApp{% if current_user.whatsapp_ready %} <span class="dot dot-ok" aria-label="connected"></span>{% endif %}</a>
+  <a class="chip {{ 'active' if ep == 'settings.sms_settings' }}" href="{{ url_for('settings.sms_settings') }}">Bank SMS</a>
+  <a class="chip {{ 'active' if ep == 'settings.security' }}" href="{{ url_for('settings.security') }}">Account &amp; security</a>
+</nav>

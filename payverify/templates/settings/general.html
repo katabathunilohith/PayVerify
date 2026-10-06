@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+{% include "settings/_nav.html" %}
+{% set u = current_user %}
+<section class="card stack approval-card">
+  <div class="card-head">
+    <h2 class="card-title">Approval</h2>
+    {% if u.auto_approve %}<span class="badge badge-verified">Automatic</span>{% else %}<span class="badge badge-muted">Waits for bank</span>{% endif %}
+  </div>
+  <form method="post" action="{{ url_for('settings.approval') }}">
+    {{ csrf() }}
+    <input type="hidden" name="mode" value="{{ 'bank' if u.auto_approve else 'automatic' }}">
+    <button type="submit" class="auto-toggle big {{ 'on' if u.auto_approve }}" role="switch" aria-checked="{{ 'true' if u.auto_approve else 'false' }}">
+      <span class="switch-track" aria-hidden="true"></span>
+      <span>Approve payments automatically</span>
+    </button>
+  </form>
+  <ul class="mode-explainer">
+    <li class="{{ 'current' if u.auto_approve }}">
+      <strong>On:</strong> a payment is approved, and the customer thanked, as soon as the screenshot passes every check:
+      paid to your UPI ID, marked successful, recent, not sent before, your usual amount (if set), and no signs of editing.
+      If your bank SMS later shows a different amount, it moves back to <em>Needs review</em>.
+    </li>
+    <li class="{{ 'current' if not u.auto_approve }}">
+      <strong>Off:</strong> a payment is approved only when the same UTR and amount also show up in your bank
+      (forwarded SMS or statement), or when you approve it yourself. Safest against fake screenshots.
+    </li>
+  </ul>
+</section>
+
+<form method="post" class="stack">
+  {{ csrf() }}
+  <section class="card stack">
+    <h2 class="card-title">Your business</h2>
+    <div class="grid-2">
+      <div class="field">
+        <label for="name">Your name</label>
+        <input id="name" name="name" value="{{ u.name }}" required>
+      </div>
+      <div class="field">
+        <label for="business_name">Business name</label>
+        <input id="business_name" name="business_name" value="{{ u.business_name }}">
+      </div>
+    </div>
+  </section>
+
+  <section class="card stack">
+    <div>
+      <h2 class="card-title">Screenshot checks</h2>
+      <p class="muted small">Every screenshot is checked against these. A payment is only “Verified” once the same UTR and amount also arrive in your bank.</p>
+    </div>
+    <div class="field">
+      <label for="upi_ids">Your UPI IDs</label>
+      <textarea id="upi_ids" name="upi_ids" rows="3" autocapitalize="off" spellcheck="false" placeholder="yourshop@okhdfcbank&#10;9876543210@ybl">{{ u.upi_ids }}</textarea>
+      <p class="hint">One per line. Customers must have paid one of these.</p>
+    </div>
+    <div class="field">
+      <label for="payee_names">Names shown when people pay you</label>
+      <textarea id="payee_names" name="payee_names" rows="2" placeholder="Ravi Kumar&#10;Sri Sai Rentals">{{ u.payee_names }}</textarea>
+      <p class="hint">Used when a screenshot shows only a name, not the UPI ID.</p>
+    </div>
+    <div class="grid-3">
+      <div class="field">
+        <label for="accepted_amounts">Usual amounts <span class="optional">optional</span></label>
+        <input id="accepted_amounts" name="accepted_amounts" value="{{ u.accepted_amounts }}" placeholder="500, 1000, 1500" inputmode="decimal">
+        <p class="hint">Leave empty if amounts vary. Write numbers without commas.</p>
+      </div>
+      <div class="field">
+        <label for="max_age_days">Screenshot must be newer than</label>
+        <div class="input-suffix">
+          <input id="max_age_days" name="max_age_days" type="number" min="1" max="60" value="{{ u.max_age_days }}">
+          <span>days</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="timezone">Time zone</label>
+        <select id="timezone" name="timezone">
+          {% for tz in timezones %}<option value="{{ tz }}" {{ 'selected' if tz == u.timezone }}>{{ tz }}</option>{% endfor %}
+          {% if u.timezone not in timezones %}<option selected>{{ u.timezone }}</option>{% endif %}
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <section class="card stack">
+    <div>
+      <h2 class="card-title">Automatic WhatsApp replies</h2>
+      <p class="muted small">You can use <code>{name}</code>, <code>{amount}</code>, <code>{utr}</code> and <code>{business}</code>. Each customer gets at most one reply per outcome.</p>
+    </div>
+    <label class="switch">
+      <input type="checkbox" name="reply_enabled" value="1" {{ 'checked' if u.reply_enabled }}>
+      <span class="switch-track" aria-hidden="true"></span>
+      Reply to customers automatically
+    </label>
+    <div class="field">
+      <label for="reply_verified">When the payment is verified</label>
+      <textarea id="reply_verified" name="reply_verified" rows="2">{{ u.reply_verified }}</textarea>
+    </div>
+    <div class="field">
+      <label for="reply_pending">While it is being checked</label>
+      <textarea id="reply_pending" name="reply_pending" rows="2">{{ u.reply_pending }}</textarea>
+    </div>
+    <div class="field">
+      <label for="reply_unreadable">When the screenshot can't be read</label>
+      <textarea id="reply_unreadable" name="reply_unreadable" rows="2">{{ u.reply_unreadable }}</textarea>
+    </div>
+  </section>
+
+  <div class="form-actions">
+    <button class="btn btn-primary" type="submit">Save settings</button>
+  </div>
+</form>
+{% endblock %}

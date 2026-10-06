@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, month_nav, status_badge %}
+{% block title %}Payments{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="page-title">
+    <h1>Payments</h1>
+    <p class="muted">Screenshots received in {{ month|month_label }}</p>
+  </div>
+  <div class="head-actions">
+    {% set auto = current_user.auto_approve %}
+    <form method="post" action="{{ url_for('settings.approval') }}" class="auto-toggle-form">
+      {{ csrf() }}
+      <input type="hidden" name="mode" value="{{ 'bank' if auto else 'automatic' }}">
+      <input type="hidden" name="next" value="{{ request.full_path }}">
+      <button type="submit" class="auto-toggle {{ 'on' if auto }}" role="switch" aria-checked="{{ 'true' if auto else 'false' }}"
+              title="{{ 'Payments are approved as soon as the screenshot passes every check. Tap to turn off.' if auto else 'Payments wait for your bank to confirm them. Tap to approve automatically.' }}">
+        <span class="switch-track" aria-hidden="true"></span>
+        <span>Auto-approve</span>
+      </button>
+    </form>
+    {{ month_nav('payments.dashboard', month, prev_month, next_month) }}
+    <a class="btn btn-secondary" href="{{ url_for('payments.export') }}" title="Download every month as one Excel workbook, one tab per month">{{ icon('download') }}<span>Excel</span></a>
+  </div>
+</header>
+
+{% if setup.steps_left %}
+<section class="card setup">
+  <h2>Finish setting up</h2>
+  <ol class="setup-steps">
+    <li class="{{ 'done' if setup.ai }}">
+      <span class="step-dot">{{ icon('check') }}</span>
+      <span class="step-title">Turn on screenshot reading</span>
+      <small>{{ 'Meta AI reads each screenshot.' if setup.ai else "Add META_MODEL_API_KEY (create it at dev.meta.ai) to the server's .env file, then restart the app." }}</small>
+    </li>
+    <li class="{{ 'done' if setup.upi }}">
+      <span class="step-dot">{{ icon('check') }}</span>
+      <a href="{{ url_for('settings.general') }}">Add your UPI IDs</a>
+      <small>So each screenshot can be checked: was it paid to you?</small>
+    </li>
+    <li class="{{ 'done' if setup.whatsapp }}">
+      <span class="step-dot">{{ icon('check') }}</span>
+      <a href="{{ url_for('settings.whatsapp_settings') }}">Connect your WhatsApp Business number</a>
+      <small>Screenshots customers send arrive here automatically and get a reply.</small>
+    </li>
+    <li class="{{ 'done' if setup.bank }}">
+      <span class="step-dot">{{ icon('check') }}</span>
+      <a href="{{ url_for('settings.sms_settings') }}">Forward your bank's credit SMS{% if current_user.auto_approve %} (recommended){% endif %}</a>
+      {% if current_user.auto_approve %}
+        <small>Optional with auto-approve, but it catches screenshots whose amount was edited.</small>
+      {% else %}
+        <small>This confirms the money really arrived. Only then is a payment “Verified”.</small>
+      {% endif %}
+    </li>
+  </ol>
+</section>
+{% endif %}
+
+<section class="stats" aria-label="Summary for {{ month|month_label }}">
+  <a class="stat stat-verified" href="{{ url_for('payments.dashboard', month=month, status='verified') }}">
+    <span class="stat-label">Verified</span>
+    <strong>{{ summary.verified.total|inr }}</strong>
+    <span class="stat-sub">{{ summary.verified.count }} payment{{ '' if summary.verified.count == 1 else 's' }}</span>
+  </a>
+  <a class="stat stat-review" href="{{ url_for('payments.dashboard', month=month, status='needs_review') }}">
+    <span class="stat-label">Needs review</span>
+    <strong>{{ summary.needs_review.count }}</strong>
+    <span class="stat-sub">{{ summary.needs_review.total|inr if summary.needs_review.total else 'Nothing waiting' }}</span>
+  </a>
+  <a class="stat stat-duplicate" href="{{ url_for('payments.dashboard', month=month, status='duplicate') }}">
+    <span class="stat-label">Duplicates</span>
+    <strong>{{ summary.duplicate.count }}</strong>
+    <span class="stat-sub">Old screenshots sent again</span>
+  </a>
+  <a class="stat" href="{{ url_for('payments.dashboard', month=month) }}">
+    <span class="stat-label">All screenshots</span>
+    <strong>{{ total_count }}</strong>
+    <span class="stat-sub">{{ summary.rejected.count }} rejected</span>
+  </a>
+</section>
+
+<section class="toolbar">
+  <nav class="chips" aria-label="Filter by status">
+    {% for key, label in filters %}
+      <a class="chip {{ 'active' if status == key }}" href="{{ url_for('payments.dashboard', month=month, status=key, q=search or None) }}">
+        {{ label }}{% if key != 'all' and summary[key].count %}<span class="chip-count">{{ summary[key].count }}</span>{% endif %}
+      </a>
+    {% endfor %}
+  </nav>
+  <form class="search" method="get" role="search">
+    <input type="hidden" name="month" value="{{ month }}">
+    <input type="hidden" name="status" value="{{ status }}">
+    {{ icon('search') }}
+    <input type="search" name="q" value="{{ search }}" placeholder="Search name, phone or UTR" aria-label="Search payments" enterkeyhint="search">
+  </form>
+</section>
+
+{% if payments %}
+  <div class="pay-head" aria-hidden="true">
+    <span>Customer</span><span>Amount</span><span>UTR</span><span>App</span><span>Received</span><span>Status</span>
+  </div>
+  <ul class="pay-list">
+    {% for p in payments %}
+      <li>
+        <a class="pay-row status-{{ p.status }}" href="{{ url_for('payments.detail', payment_id=p.id) }}">
+          <span class="pr-customer">
+            <strong>{{ p.customer_name or p.customer_phone or 'Unknown customer' }}</strong>
+            <small>{{ p.customer_phone if p.customer_name else ('via WhatsApp' if p.source == 'whatsapp' else 'Added by you') }}</small>
+          </span>
+          <span class="pr-amount">{{ p.amount_paise|inr }}</span>
+          <span class="pr-meta">
+            <span class="pr-utr"><span class="sr-label">UTR </span>{{ p.utr or '—' }}</span>
+            <span class="pr-app">{{ p.payment_app or '—' }}</span>
+            <span class="pr-time">{{ p.received_at|localtime('%d %b, %I:%M %p') }}</span>
+          </span>
+          <span class="pr-status">{{ status_badge(p.status, p.status_label) }}</span>
+          {% if p.status != 'verified' and p.status_reason %}
+            <span class="pr-reason">{{ p.status_reason }}</span>
+          {% endif %}
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <div class="empty card">
+    {{ icon('receipt', 'empty-icon') }}
+    {% if search or status != 'all' %}
+      <h2>No matching payments</h2>
+      <p class="muted">Try another filter, or clear the search.</p>
+      <a class="btn btn-secondary" href="{{ url_for('payments.dashboard', month=month) }}">Show all</a>
+    {% else %}
+      <h2>No payments in {{ month|month_label }} yet</h2>
+      <p class="muted">Screenshots your customers send on WhatsApp show up here by themselves. You can also add one yourself.</p>
+      <a class="btn btn-primary" href="{{ url_for('payments.upload') }}">{{ icon('upload') }}Add a screenshot</a>
+    {% endif %}
+  </div>
+{% endif %}
+{% endblock %}

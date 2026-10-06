@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Offline · {{ app_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body class="signed-out">
+  <main class="main">
+    <div class="auth-wrap">
+      <div class="auth-card card center">
+        <div class="auth-brand">{{ icon('shield-check', 'brand-mark big') }}<span>{{ app_name }}</span></div>
+        <h1>You're offline</h1>
+        <p class="muted">Payments are kept on the server, so you need an internet connection to see them. Check your connection and try again.</p>
+        <a class="btn btn-primary btn-block" href="/">Try again</a>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

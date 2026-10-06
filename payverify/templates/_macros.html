@@ -1,0 +1,34 @@
+{% macro csrf() -%}
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{%- endmacro %}
+
+{% macro status_badge(status, label) -%}
+  <span class="badge badge-{{ status }}">{{ label }}</span>
+{%- endmacro %}
+
+{% macro month_nav(endpoint, month, prev_month, next_month) -%}
+  <div class="month-nav" role="group" aria-label="Choose month">
+    <a class="icon-btn" href="{{ url_for(endpoint, month=prev_month, **kwargs) }}" aria-label="Previous month">{{ icon('chevron-left') }}</a>
+    <span class="month-label">{{ month|month_label }}</span>
+    {% if next_month %}
+      <a class="icon-btn" href="{{ url_for(endpoint, month=next_month, **kwargs) }}" aria-label="Next month">{{ icon('chevron-right') }}</a>
+    {% else %}
+      <span class="icon-btn disabled" aria-hidden="true">{{ icon('chevron-right') }}</span>
+    {% endif %}
+  </div>
+{%- endmacro %}
+
+{% macro check_icon(state) -%}
+  {% set names = {'pass': 'check', 'fail': 'x', 'warn': 'alert', 'wait': 'clock', 'skip': 'minus'} %}
+  <span class="check-icon check-{{ state }}">{{ icon(names.get(state, 'minus')) }}</span>
+{%- endmacro %}
+
+{% macro copy_field(label, value, id) -%}
+  <div class="field">
+    <label for="{{ id }}">{{ label }}</label>
+    <div class="copy-row">
+      <input id="{{ id }}" type="text" value="{{ value }}" readonly>
+      <button type="button" class="btn btn-secondary" data-copy="#{{ id }}">{{ icon('copy') }}<span>Copy</span></button>
+    </div>
+  </div>
+{%- endmacro %}

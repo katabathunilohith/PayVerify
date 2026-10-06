@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Account &amp; security{% endblock %}
+{% block content %}
+{% include "settings/_nav.html" %}
+
+<form method="post" class="card stack" autocomplete="off">
+  {{ csrf() }}
+  <h2 class="card-title">Change password</h2>
+  <div class="field">
+    <label for="current_password">Current password</label>
+    <input id="current_password" name="current_password" type="password" autocomplete="current-password" required>
+  </div>
+  <div class="grid-2">
+    <div class="field">
+      <label for="new_password">New password</label>
+      <input id="new_password" name="new_password" type="password" autocomplete="new-password" minlength="8" required>
+    </div>
+    <div class="field">
+      <label for="confirm_password">Confirm new password</label>
+      <input id="confirm_password" name="confirm_password" type="password" autocomplete="new-password" minlength="8" required>
+    </div>
+  </div>
+  <p class="hint">Changing your password signs out your other phones and computers.</p>
+  <div class="action-row">
+    <button class="btn btn-primary" type="submit" name="action" value="password">Change password</button>
+  </div>
+</form>
+
+<section class="card stack">
+  <h2 class="card-title">Devices</h2>
+  <p class="muted small">Lost a phone, or logged in on someone else's computer? Sign out everywhere, including here.</p>
+  <div class="action-row">
+    <form method="post" data-confirm="Sign out on every device, including this one?">
+      {{ csrf() }}<input type="hidden" name="action" value="logout_all">
+      <button class="btn btn-secondary" type="submit">Sign out everywhere</button>
+    </form>
+    <form method="post" action="{{ url_for('auth.logout') }}">
+      {{ csrf() }}
+      <button class="btn btn-ghost" type="submit">{{ icon('logout') }}Log out</button>
+    </form>
+  </div>
+</section>
+
+<section class="card stack">
+  <h2 class="card-title">Install the app</h2>
+  <ul class="howto plain">
+    <li><strong>iPhone / iPad:</strong> open this site in Safari → Share → <em>Add to Home Screen</em>.</li>
+    <li><strong>Android:</strong> open it in Chrome → menu (⋮) → <em>Install app</em>.</li>
+    <li><strong>Mac:</strong> Safari → File → <em>Add to Dock</em>, or Chrome → the install icon in the address bar.</li>
+  </ul>
+  <button type="button" class="btn btn-primary" data-install hidden>Install {{ app_name }}</button>
+</section>
+{% endblock %}
